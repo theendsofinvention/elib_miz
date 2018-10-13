@@ -2,6 +2,7 @@
 """
 Manages MIZ files
 """
+import logging
 import os
 import shutil
 import tempfile
@@ -10,13 +11,11 @@ from filecmp import dircmp
 from pathlib import Path
 from zipfile import BadZipFile, ZipFile
 
-import elib
+from elib_miz.dummy_miz import dummy_miz
+from elib_miz.mission import Mission
+from elib_miz.sltp import SLTP
 
-from emiz.dummy_miz import dummy_miz
-from emiz.mission import Mission
-from emiz.sltp import SLTP
-
-LOGGER = elib.custom_logging.get_logger('EMIZ')
+LOGGER = logging.getLogger('elib.miz')
 
 ENCODING = 'iso8859_15'
 
@@ -28,14 +27,20 @@ class Miz:
     """
 
     def __init__(
-            self,
-            path_to_miz_file: typing.Union[str, Path],
-            temp_dir: typing.Union[str, Path] = None,
-            keep_temp_dir: bool = False,
-            overwrite: bool = False
+        self,
+        path_to_miz_file: typing.Union[str, Path],
+        temp_dir: typing.Union[str, Path] = None,
+        keep_temp_dir: bool = False,
+        overwrite: bool = False
     ) -> None:
 
-        self.miz_path = elib.path.ensure_file(path_to_miz_file)
+        _miz_path = Path(path_to_miz_file).absolute()
+        if not _miz_path.exists():
+            raise FileNotFoundError(_miz_path)
+        if not _miz_path.is_file():
+            raise TypeError(f'not a file: {_miz_path}')
+
+        self.miz_path = _miz_path
 
         if self.miz_path.suffix != '.miz':
             raise ValueError(f'MIZ file should end with the ".miz" extension: {self.miz_path}')
@@ -51,7 +56,7 @@ class Miz:
         LOGGER.debug('temporary directory: %s', self.temp_dir)
 
         self.zip_content: typing.Optional[typing.List[str]] = None
-        self._mission = None
+        self._mission: typing.Optional[Mission] = None
         self._mission_qual = None
         self._l10n = None
         self._l10n_qual = None
@@ -115,6 +120,12 @@ class Miz:
             raise RuntimeError()
         return self._mission
 
+    @mission.setter
+    def mission(self, value: Mission):
+        if not isinstance(value, Mission):
+            raise TypeError(f'expected a "Mission" object, got: {type(value)}')
+        self._mission = value
+
     @property
     def l10n(self) -> dict:
         """
@@ -147,31 +158,7 @@ class Miz:
         return self._resources
 
     @staticmethod
-    def reorder(
-            miz_file_path: typing.Union[str, Path],
-            target_dir: typing.Union[str, Path],
-            skip_options_file: bool,
-    ):
-        """
-        Re-orders a miz file into a folder (flattened)
-
-        Args:
-            miz_file_path: source miz file
-            target_dir: folder to flatten the content into
-            skip_options_file: do not re-order option file
-
-        """
-
-        miz_file_path = elib.path.ensure_file(miz_file_path)
-        target_dir_path = elib.path.ensure_dir(target_dir, must_exist=False)
-
-        LOGGER.debug('re-ordering miz file: %s', miz_file_path)
-        LOGGER.debug('destination folder: %s', target_dir)
-        LOGGER.debug('%s option file', "skipping" if skip_options_file else "including")
-
-        if not target_dir_path.exists():
-            LOGGER.debug('creating directory %s', target_dir_path)
-            target_dir_path.mkdir(exist_ok=True)
+    def _do_reorder(miz_file_path, skip_options_file, target_dir_path):
 
         with Miz(miz_file_path, overwrite=True) as miz_:
 
@@ -218,24 +205,63 @@ class Miz:
 
             mirror_dir(Path(miz_.temp_dir), target_dir_path)
 
+    @staticmethod
+    def reorder(
+        miz_file_path: typing.Union[str, Path],
+        target_dir: typing.Union[str, Path],
+        skip_options_file: bool,
+    ):
+        """
+        Re-orders a miz file into a folder (flattened)
+
+        Args:
+            miz_file_path: source miz file
+            target_dir: folder to flatten the content into
+            skip_options_file: do not re-order option file
+
+        """
+
+        miz_file_path = Path(miz_file_path).absolute()
+        if not miz_file_path.exists():
+            raise FileNotFoundError(miz_file_path)
+        if not miz_file_path.is_file():
+            raise ValueError(f'not a file: {miz_file_path}')
+
+        target_dir_path = Path(target_dir).absolute()
+        if not target_dir_path.exists():
+            target_dir_path.mkdir(parents=True)
+        else:
+            if not target_dir_path.is_dir():
+                raise ValueError(f'not a directory: {target_dir_path}')
+
+        LOGGER.debug('re-ordering miz file: %s', miz_file_path)
+        LOGGER.debug('destination folder: %s', target_dir)
+        LOGGER.debug('%s option file', "skipping" if skip_options_file else "including")
+
+        if not target_dir_path.exists():
+            LOGGER.debug('creating directory %s', target_dir_path)
+            target_dir_path.mkdir(exist_ok=True)
+
+        Miz._do_reorder(miz_file_path, skip_options_file, target_dir_path)
+
     def decode(self):
         """Decodes the mission files into dictionaries"""
 
         LOGGER.debug('decoding lua tables')
 
         if not self.zip_content:
-            self.unzip(overwrite=False)
+            self.unzip()
 
         LOGGER.debug('reading map resource file')
-        with open(self.map_res_file, encoding=ENCODING) as stream:
+        with open(str(self.map_res_file), encoding=ENCODING) as stream:
             self._map_res, self._map_res_qual = SLTP().decode(stream.read())
 
         LOGGER.debug('reading l10n file')
-        with open(self.dictionary_file, encoding=ENCODING) as stream:
+        with open(str(self.dictionary_file), encoding=ENCODING) as stream:
             self._l10n, self._l10n_qual = SLTP().decode(stream.read())
 
         LOGGER.debug('reading mission file')
-        with open(self.mission_file, encoding=ENCODING) as stream:
+        with open(str(self.mission_file), encoding=ENCODING) as stream:
             mission_data, self._mission_qual = SLTP().decode(stream.read())
             self._mission = Mission(mission_data, self._l10n)
 
@@ -253,15 +279,15 @@ class Miz:
         LOGGER.debug('encoding lua tables')
 
         LOGGER.debug('encoding map resource')
-        with open(self.map_res_file, mode='w', encoding=ENCODING) as stream:
+        with open(str(self.map_res_file), mode='w', encoding=ENCODING) as stream:
             stream.write(SLTP().encode(self._map_res, self._map_res_qual))
 
         LOGGER.debug('encoding l10n dictionary')
-        with open(self.dictionary_file, mode='w', encoding=ENCODING) as stream:
+        with open(str(self.dictionary_file), mode='w', encoding=ENCODING) as stream:
             stream.write(SLTP().encode(self.l10n, self._l10n_qual))
 
         LOGGER.debug('encoding mission dictionary')
-        with open(self.mission_file, mode='w', encoding=ENCODING) as stream:
+        with open(str(self.mission_file), mode='w', encoding=ENCODING) as stream:
             stream.write(SLTP().encode(self.mission.d, self._mission_qual))
 
         LOGGER.debug('encoding done')
@@ -335,11 +361,12 @@ class Miz:
         """
         Write mission, dictionary etc. to a MIZ file
 
-        Args:
-            destination: target MIZ file (if none, defaults to source MIZ + "_EMIZ"
-
-        Returns: destination file
-
+        :param destination: target MIZ file (if none, defaults to source MIZ + "_EMIZ"
+        :type destination: str or Path
+        :param encode: if True, re-encode the lua tables
+        :type encode: bool
+        :return: destination file
+        :rtype: str
         """
         if encode:
             self._encode()
@@ -347,7 +374,9 @@ class Miz:
         if destination is None:
             destination_path = self.miz_path.parent.joinpath(f'{self.miz_path.stem}_EMIZ.miz')
         else:
-            destination_path = elib.path.ensure_file(destination, must_exist=False)
+            destination_path = Path(destination).absolute()
+            if destination_path.exists() and not destination_path.is_file():
+                raise ValueError(f'not a file: {destination_path}')
 
         LOGGER.debug('zipping mission to: %s', destination_path)
 

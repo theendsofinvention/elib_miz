@@ -5,17 +5,15 @@ Manages mission objects
 # pylint: skip-file
 # FIXME: pylint the shit out of this
 import calendar
+import logging
 import typing
 from itertools import chain
 from time import gmtime, strftime
 
-import elib
-
-from emiz.validator import VALID_BOOL, VALID_FLOAT, VALID_INT, VALID_POSITIVE_INT, VALID_STR, Validator
+from elib_miz import LOGGER
+from elib_miz.validator import VALID_BOOL, VALID_FLOAT, VALID_INT, VALID_POSITIVE_INT, VALID_STR, Validator
 
 EPOCH_DELTA = 1306886400
-
-LOGGER = elib.custom_logging.get_logger('EMIZ')
 
 validator_group_or_unit_name = Validator(_type=str, _regex=r'[a-zA-Z0-9\_\-\#]+',
                                          exc=ValueError, logger=LOGGER)
@@ -265,41 +263,76 @@ class BaseMissionObject:
         return self.d['date']
 
     @property
-    def day(self) -> str:
+    def second(self) -> int:
+        gm_time = gmtime(self.mission_start_time)
+        return gm_time.tm_sec
+
+    @second.setter
+    def second(self, value: int):
+        Mission.validator_minute_second.validate(value, 'second')
+        gm_time = gmtime(self.mission_start_time)
+        self.mission_start_time = calendar.timegm(
+            (gm_time.tm_year, gm_time.tm_mon, gm_time.tm_mday, gm_time.tm_hour, gm_time.tm_min, value))
+
+    @property
+    def minute(self) -> int:
+        gm_time = gmtime(self.mission_start_time)
+        return gm_time.tm_min
+
+    @minute.setter
+    def minute(self, value: int):
+        Mission.validator_minute_second.validate(value, 'minute')
+        gm_time = gmtime(self.mission_start_time)
+        self.mission_start_time = calendar.timegm(
+            (gm_time.tm_year, gm_time.tm_mon, gm_time.tm_mday, gm_time.tm_hour, value, gm_time.tm_sec))
+
+    @property
+    def hour(self) -> int:
+        gm_time = gmtime(self.mission_start_time)
+        return gm_time.tm_hour
+
+    @hour.setter
+    def hour(self, value: int):
+        Mission.validator_hour.validate(value, 'hour')
+        gm_time = gmtime(self.mission_start_time)
+        self.mission_start_time = calendar.timegm(
+            (gm_time.tm_year, gm_time.tm_mon, gm_time.tm_mday, value, gm_time.tm_min, gm_time.tm_sec))
+
+    @property
+    def day(self) -> int:
         """
         Returns: return "day" part of the mission start time
         """
         return self._section_date['Day']
 
     @day.setter
-    def day(self, value):
+    def day(self, value: int):
         Mission.validator_day.validate(value, 'day')
         # Get the last day of the current month
-        value = min(value, calendar.monthrange(self.year, self.month)[1])
-        self._section_date['Day'] = value
+        self._section_date['Day'] = min(value, calendar.monthrange(self.year, self.month)[1])
 
     @property
-    def month(self) -> str:
+    def month(self) -> int:
         """
         Returns: return "month" part of the mission start time
         """
         return self._section_date['Month']
 
     @month.setter
-    def month(self, value):
+    def month(self, value: int):
         Mission.validator_month.validate(value, 'month')
         self._section_date['Month'] = value
         self.day = self.day  # update day (for max value)
 
     @property
-    def year(self) -> str:
+    def year(self) -> int:
         """
         Returns: return "year" part of the mission start time
         """
         return self._section_date['Year']
 
     @year.setter
-    def year(self, value):
+    def year(self, value: int):
         Mission.validator_year.validate(value, 'year')
         self._section_date['Year'] = value
         self.day = self.day  # update day (for max value)
@@ -397,6 +430,20 @@ class Mission(BaseMissionObject):
         exc=ValueError,
         logger=LOGGER
     )
+    validator_hour = Validator(
+        _type=int,
+        _min=0,
+        _max=23,
+        exc=ValueError,
+        logger=LOGGER
+    )
+    validator_minute_second = Validator(
+        _type=int,
+        _min=0,
+        _max=59,
+        exc=ValueError,
+        logger=LOGGER
+    )
     validator_heading = Validator(
         _type=int,
         _min=0,
@@ -420,6 +467,14 @@ class Mission(BaseMissionObject):
 
     def __repr__(self):
         return 'Mission({})'.format(self.d)
+
+    @property
+    def theatre(self) -> str:
+        """
+        :return: mission theater
+        :rtype: str
+        """
+        return self.d['theatre']
 
     @property
     def blue_coa(self) -> 'Coalition':
@@ -816,6 +871,8 @@ class Weather(BaseMissionObject):
     validator_cloud_base = Validator(_type=int, _min=300, _max=5000, exc=ValueError, logger=LOGGER)
     validator_fog_visibility = Validator(_type=int, _min=0, _max=6000, exc=ValueError,
                                          logger=LOGGER)
+    validator_dust_density = Validator(_type=int, _min=300, _max=3000, exc=ValueError,
+                                       logger=LOGGER)
     validator_visibility = Validator(_type=int, _min=0, _max=80000, exc=ValueError,
                                      logger=LOGGER)
     validator_fog_thickness = Validator(_type=int, _min=0, _max=1000, exc=ValueError,
@@ -881,27 +938,27 @@ class Weather(BaseMissionObject):
         return self._section_wind['atGround']
 
     @property
-    def turbulence_at_ground_level(self) -> float:
+    def turbulence(self) -> float:
         """
         Returns: turbulence at ground level
         """
         return self._section_weather['groundTurbulence']
 
-    @turbulence_at_ground_level.setter
-    def turbulence_at_ground_level(self, value):
-        self.validator_turbulence.validate(value, 'turbulence_at_ground_level')
+    @turbulence.setter
+    def turbulence(self, value):
+        self.validator_turbulence.validate(value, 'turbulence')
         self._section_weather['groundTurbulence'] = value
 
     @property
-    def wind_at_ground_level_speed(self) -> int:
+    def wind_ground_speed(self) -> int:
         """
         Returns: winds at ground level in ms
         """
         return self._section_wind_at_ground_level['speed']
 
-    @wind_at_ground_level_speed.setter
-    def wind_at_ground_level_speed(self, value):
-        self.validator_wind_speed.validate(value, 'wind_at_ground_level_speed')
+    @wind_ground_speed.setter
+    def wind_ground_speed(self, value):
+        self.validator_wind_speed.validate(value, 'wind_ground_speed')
         self._section_wind_at_ground_level['speed'] = value
 
     @property
@@ -923,7 +980,7 @@ class Weather(BaseMissionObject):
     @property
     def fog_visibility(self) -> int:
         """
-        Returns: gof visibility in meters
+        Returns: fog visibility in meters
         """
         return self._section_fog['visibility']
 
@@ -933,16 +990,40 @@ class Weather(BaseMissionObject):
         self._section_fog['visibility'] = value
 
     @property
-    def fog_enabled(self) -> int:
+    def fog_enabled(self) -> bool:
         """
-        Returns: 1 if fog is enabled, 0 otherwise
+        Returns: True if fog is enabled
         """
         return self._section_weather['enable_fog']
 
     @fog_enabled.setter
-    def fog_enabled(self, value):
+    def fog_enabled(self, value: bool):
         VALID_BOOL.validate(value, 'enable_fog')
         self._section_weather['enable_fog'] = value
+
+    @property
+    def dust_enabled(self) -> bool:
+        """
+        Returns: True if fog is enabled
+        """
+        return self._section_weather['enable_dust']
+
+    @dust_enabled.setter
+    def dust_enabled(self, value: bool):
+        VALID_BOOL.validate(value, 'dust_enabled')
+        self._section_weather['enable_dust'] = value
+
+    @property
+    def dust_density(self) -> int:
+        """
+        Returns: fog visibility in meters
+        """
+        return self._section_weather['dust_density']
+
+    @dust_density.setter
+    def dust_density(self, value: int):
+        self.validator_dust_density.validate(value, 'dust_density')
+        self._section_weather['dust_density'] = value
 
     @property
     def _section_visibility(self):
@@ -961,15 +1042,15 @@ class Weather(BaseMissionObject):
         self._section_visibility['distance'] = value
 
     @property
-    def precipitations(self) -> int:
+    def precipitation_code(self) -> int:
         """
         Returns: precipitation code
         """
         return self._section_clouds['iprecptns']
 
-    @precipitations.setter
-    def precipitations(self, value):
-        self.validator_precipitations.validate(value, 'precipitations')
+    @precipitation_code.setter
+    def precipitation_code(self, value):
+        self.validator_precipitations.validate(value, 'precipitation_code')
         if value > 0 and self.cloud_density <= 4:
             raise ValueError('No rain or snow if cloud density is less than 5')
         if value in [2, 4] and self.cloud_density <= 8:
@@ -1008,25 +1089,25 @@ class Weather(BaseMissionObject):
     def temperature(self, value):
         self.validator_temperature.validate(value, 'temperature')
         self._section_season['temperature'] = value
-        # if value > 0 and self.precipitations > 2:
-        #     self.precipitations -= 2
-        # if value < 0 < self.precipitations < 3:  # PyKek
-        #     self.precipitations += 2
+        # if value > 0 and self.precipitation_code > 2:
+        #     self.precipitation_code -= 2
+        # if value < 0 < self.precipitation_code < 3:  # PyKek
+        #     self.precipitation_code += 2
 
     @property
     def _section_wind_at8000(self):
         return self._section_wind['at8000']
 
     @property
-    def wind_at_ground_level_dir(self) -> int:
+    def wind_ground_dir(self) -> int:
         """
         Returns: wind speed at ground level
         """
         return self._section_wind_at_ground_level['dir']
 
-    @wind_at_ground_level_dir.setter
-    def wind_at_ground_level_dir(self, value):
-        Mission.validator_heading.validate(value, 'wind_at_ground_level_dir')
+    @wind_ground_dir.setter
+    def wind_ground_dir(self, value):
+        Mission.validator_heading.validate(value, 'wind_ground_dir')
         self._section_wind_at_ground_level['dir'] = value
 
     @property
@@ -1045,15 +1126,15 @@ class Weather(BaseMissionObject):
         return self.seasons_enum[self.season_code]['name']  # type: ignore
 
     @property
-    def qnh(self) -> int:
+    def altimeter(self) -> int:
         """
         Returns: pressure in mmHg
         """
         return self._section_weather['qnh']
 
-    @qnh.setter
-    def qnh(self, value):
-        self.validator_qnh.validate(value, 'qnh')
+    @altimeter.setter
+    def altimeter(self, value):
+        self.validator_qnh.validate(value, 'altimeter')
         self._section_weather['qnh'] = value
 
     @property
