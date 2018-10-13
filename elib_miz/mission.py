@@ -5,7 +5,6 @@ Manages mission objects
 # pylint: skip-file
 # FIXME: pylint the shit out of this
 import calendar
-import logging
 import typing
 from itertools import chain
 from time import gmtime, strftime

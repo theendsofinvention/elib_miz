@@ -10,19 +10,18 @@ from re import fullmatch as re_full_match
 class Validator:
     """Validates many kind of values against pre-defined conditions, raises Exception and logs errors"""
 
-    def __init__(
-        self,
-        *,
-        _type=None,
-        _instance=None,
-        _min=None,
-        _max=None,
-        _regex=None,
-        _in_list=None,
-        _path_exists=False,
-        exc=None,
-        logger=None
-    ):
+    def __init__(self,
+                 *,
+                 _type=None,
+                 _instance=None,
+                 _min=None,
+                 _max=None,
+                 _regex=None,
+                 _in_list=None,
+                 _path_exists=False,
+                 exc=None,
+                 logger=None
+                 ):
         self.type = _type
         self.instance = _instance
         self.min = _min

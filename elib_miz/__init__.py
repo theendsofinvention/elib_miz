@@ -2,6 +2,7 @@
 """
 Top-level package for elib_miz.
 """
+# pylint: disable=wrong-import-position
 
 import logging
 
@@ -16,7 +17,7 @@ except DistributionNotFound:  # pragma: no cover
 __author__ = """etcher"""
 __email__ = 'etcher@daribouca.net'
 
-LOGGER = logging.getLogger('elib.miz')
+LOGGER: logging.Logger = logging.getLogger('elib.miz')
 
 from .mission import Mission
 from .miz import Miz

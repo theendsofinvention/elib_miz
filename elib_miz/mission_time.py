@@ -2,14 +2,14 @@
 """
 Manages date and time in a mission
 """
-import datetime
+import datetime as base_datetime
 import re
 from pathlib import Path
 
 import dataclasses
 
 from elib_miz import LOGGER, Miz
-from elib_miz.exc import InvalidDateTimeString, MizFileNotFoundError, MizFileAlreadyExistsError
+from elib_miz.exc import InvalidDateTimeString, MizFileAlreadyExistsError, MizFileNotFoundError
 
 RE_INPUT_STRING = re.compile(r'^'
                              r'(?P<year>[\d]{4})'
@@ -23,6 +23,9 @@ RE_INPUT_STRING = re.compile(r'^'
 
 @dataclasses.dataclass
 class MissionTime:
+    """
+    Represents a date-time object with convenience methods for MIZ files
+    """
     year: int
     month: int
     day: int
@@ -31,22 +34,22 @@ class MissionTime:
     second: int
 
     @staticmethod
-    def from_datetime(datetime: datetime.datetime) -> 'MissionTime':
+    def from_datetime(datetime_: base_datetime.datetime) -> 'MissionTime':
         """
         Creates MissionTime from datetime.Datetime object
 
-        :param datetime: source datetime.datetime
-        :type datetime: datetime.datetime
+        :param datetime_: source datetime.datetime
+        :type datetime_: datetime.datetime
         :return: MissionTime object
         :rtype: MissionTime
         """
         return MissionTime(
-            datetime.year,
-            datetime.month,
-            datetime.day,
-            datetime.hour,
-            datetime.minute,
-            datetime.second
+            datetime_.year,
+            datetime_.month,
+            datetime_.day,
+            datetime_.hour,
+            datetime_.minute,
+            datetime_.second
         )
 
     @staticmethod
@@ -57,10 +60,18 @@ class MissionTime:
         :return: MissionTime object
         :rtype: MissionTime
         """
-        return MissionTime.from_datetime(datetime.datetime.utcnow())
+        return MissionTime.from_datetime(base_datetime.datetime.utcnow())
 
     @staticmethod
     def from_miz(miz_file_path: str) -> 'MissionTime':
+        """
+        Creates a MissionTime object from a MIZ file
+
+        :param miz_file_path: path to the source MIZ file
+        :type miz_file_path: str
+        :return: MissionTime object
+        :rtype: MissionTime
+        """
         _miz_file_path = Path(miz_file_path).absolute()
         if not _miz_file_path.exists():
             raise MizFileNotFoundError(str(_miz_file_path))
@@ -68,7 +79,6 @@ class MissionTime:
             _year = miz.mission.year
             _month = miz.mission.month
             _day = miz.mission.day
-            _start_time = miz.mission.mission_start_time
             _minute, _second = divmod(miz.mission.mission_start_time, 60)
             _hour, _minute = divmod(_minute, 60)
         return MissionTime(_year, _month, _day, _hour, _minute, _second)
@@ -102,13 +112,13 @@ class MissionTime:
         )
 
     @property
-    def datetime(self) -> datetime.datetime:
+    def datetime(self) -> base_datetime.datetime:
         """
         :return: datetime object representing this MissionTime
         :rtype: datetime.datetime
         """
         if not hasattr(self, '__datetime'):
-            dt_obj = datetime.datetime(self.year, self.month, self.day, self.hour, self.minute, self.second)
+            dt_obj = base_datetime.datetime(self.year, self.month, self.day, self.hour, self.minute, self.second)
             setattr(self, '__datetime', dt_obj)
         return getattr(self, '__datetime')
 
