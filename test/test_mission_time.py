@@ -113,4 +113,3 @@ def test_apply_to_miz_file_errors():
     in_file.touch()
     with pytest.raises(exc.MizFileAlreadyExistsError):
         mission_time.apply_to_miz(str(in_file), str(out_file))
-

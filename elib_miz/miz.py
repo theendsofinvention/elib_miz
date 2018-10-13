@@ -26,13 +26,12 @@ class Miz:
     Manage MIZ files
     """
 
-    def __init__(
-        self,
-        path_to_miz_file: typing.Union[str, Path],
-        temp_dir: typing.Union[str, Path] = None,
-        keep_temp_dir: bool = False,
-        overwrite: bool = False
-    ) -> None:
+    def __init__(self,
+                 path_to_miz_file: typing.Union[str, Path],
+                 temp_dir: typing.Union[str, Path] = None,
+                 keep_temp_dir: bool = False,
+                 overwrite: bool = False
+                 ) -> None:
 
         _miz_path = Path(path_to_miz_file).absolute()
         if not _miz_path.exists():
@@ -206,11 +205,10 @@ class Miz:
             mirror_dir(Path(miz_.temp_dir), target_dir_path)
 
     @staticmethod
-    def reorder(
-        miz_file_path: typing.Union[str, Path],
-        target_dir: typing.Union[str, Path],
-        skip_options_file: bool,
-    ):
+    def reorder(miz_file_path: typing.Union[str, Path],
+                target_dir: typing.Union[str, Path],
+                skip_options_file: bool,
+                ):
         """
         Re-orders a miz file into a folder (flattened)
 
