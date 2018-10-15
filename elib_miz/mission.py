@@ -1005,7 +1005,10 @@ class Weather(BaseMissionObject):
         """
         Returns: True if fog is enabled
         """
-        return self._section_weather['enable_dust']
+        try:
+            return self._section_weather['enable_dust']
+        except KeyError:
+            return False
 
     @dust_enabled.setter
     def dust_enabled(self, value: bool):
@@ -1017,7 +1020,10 @@ class Weather(BaseMissionObject):
         """
         Returns: fog visibility in meters
         """
-        return self._section_weather['dust_density']
+        try:
+            return self._section_weather['dust_density']
+        except KeyError:
+            return 3000
 
     @dust_density.setter
     def dust_density(self, value: int):
