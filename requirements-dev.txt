@@ -83,3 +83,5 @@ webencodings==0.5.1
 wheel==0.32.2
 wrapt==1.10.11
 yarl==1.2.6 ; python_version >= '3.4'
+
+pip>=19.2 # not directly required, pinned by Snyk to avoid a vulnerability
