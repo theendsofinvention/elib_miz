@@ -61,7 +61,7 @@ pytest-vcr==0.3.0
 pytest-watch==4.2.0
 pytest==3.9.1
 python-dateutil==2.7.3
-pyyaml==4.2b1
+pyyaml==5.4
 readme-renderer==22.0
 requests-toolbelt==0.8.0
 requests==2.20.0
