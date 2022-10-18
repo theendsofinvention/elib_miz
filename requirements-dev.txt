@@ -44,7 +44,7 @@ pbr==5.0.0
 pefile==2018.8.8
 pkginfo==1.4.2
 pluggy==0.8.0
-py==1.7.0
+py==1.10.0
 pycodestyle==2.3.1
 pycparser==2.19
 pyflakes==1.6.0
